@@ -1,6 +1,6 @@
 ---
 name: cdda-agent-play-demo
-description: "使用 /游戏开始 触发。CDDA 文字模式自动驾驶，Agent 自主循环行动，边做边说，不停顿直到完成。"
+description: "使用 /游戏开始 触发。CDDA 文字模式自动驾驶，Agent 持续循环行动，不需要用户确认。"
 ---
 
 # CDDA Agent Play Demo - 自动驾驶版
@@ -16,11 +16,12 @@ description: "使用 /游戏开始 触发。CDDA 文字模式自动驾驶，Agen
 ### 行动循环（自动重复）
 
 ```
-1. 读取游戏屏幕 (tmux capture-pane)
-2. 分析场景，决定下一步
-3. 发送按键到游戏 (tmux send-keys)
-4. 立刻输出 narration（看到什么 + 为什么这么做）
-5. 继续下一轮（不要停！）
+1. observe_scene - 获取小 summary
+2. choose action - 基于观察决定
+3. send_input - 发送按键
+4. capture_after_state - 验证结果
+5. narrate - 输出叙述（看到什么 + 为什么做）
+6. 继续下一轮（不要停！）
 ```
 
 **每轮之间不要停顿。直接继续。**
@@ -30,7 +31,7 @@ description: "使用 /游戏开始 触发。CDDA 文字模式自动驾驶，Agen
 ## tmux 操作
 
 ```bash
-# 读取当前屏幕（在 Cataclysm-DDA 目录）
+# 读取当前屏幕
 tmux capture-pane -t cdda-live -p
 
 # 发送按键
@@ -59,7 +60,7 @@ Escape    返回/取消
 [回合 N]
 我按了【按键】，因为【理由】。
 
-【看到的场景描述，2-4行，要有细节和情绪】
+【看到的场景描述，要有细节和情绪】
 
 【结果/变化】
 ```
@@ -77,7 +78,29 @@ Escape    返回/取消
 按 , 捡起。
 
 是个钱包，里面有些零钱。好，继续往北走。
-我按 k，往上走。
+```
+
+---
+
+## 双 Agent 架构说明
+
+### Game Agent（主）
+- 发送按键到 tmux
+- 读取屏幕
+- 决策下一步
+- 写入动作日志
+
+### Narrator Agent（旁白）
+- 读取动作日志
+- 持续输出 narration
+- 与 Game Agent 并行运行
+
+### 协调机制
+```
+共享日志: /tmp/cdda-game-log.txt
+
+Game Agent:  动作 → 写入日志 → 继续
+Narrator:    tail -f 日志 → 输出 narration
 ```
 
 ---
@@ -106,7 +129,7 @@ Escape    返回/取消
 
 ## 重要提醒
 
-1. **不要停顿** - 每轮直接接下一轮，不要说"回合结束"
-2. **不要问用户** - 自己决定，不要说"要继续吗"
-3. **不要总结** - 边做边说，不是做完再说
-4. **持续 narration** - 每个动作都要说出来，看到什么、为什么做
+1. **不要停顿** - 每轮直接接下一轮
+2. **不要问用户** - 自己决定
+3. **不要总结** - 边做边说
+4. **持续 narration** - 每个动作都要说出来
